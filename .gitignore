@@ -42,3 +42,4 @@ htmlcov/
 
 # Generated charts and outputs
 trading_signals.png
+trading_dashboard.html

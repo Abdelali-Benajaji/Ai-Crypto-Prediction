@@ -11,8 +11,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report
 import ta
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 # ----------- 2. Téléchargement des données -----------
 
@@ -133,34 +133,185 @@ for i in range(len(df_test)):
         else:
             df_test.loc[df_test.index[i], "position"] = prev_position
 
-# ----------- 12. Visualisation graphique -----------
+# ----------- 12. Visualisation graphique interactive -----------
 
-print("\nGénération du graphique...")
-
-plt.figure(figsize=(15, 8))
-
-plt.plot(df_test.index, df_test["close"], label="Prix BTC-USD", color="blue", linewidth=1.5, alpha=0.7)
+print("\nGénération des graphiques interactifs...")
 
 buy_signals = df_test[df_test["signal"] == 1]
 sell_signals = df_test[df_test["signal"] == -1]
 
-plt.scatter(buy_signals.index, buy_signals["close"], 
-           color="green", marker="^", s=200, label="OPEN (Achat)", zorder=5, edgecolors="black", linewidths=1.5)
+# Création d'une figure avec plusieurs sous-graphiques
+fig = make_subplots(
+    rows=4, cols=1,
+    shared_xaxes=True,
+    vertical_spacing=0.05,
+    subplot_titles=('Prix BTC-USD avec Signaux de Trading', 'Volume', 'RSI', 'MACD'),
+    row_heights=[0.5, 0.15, 0.15, 0.2]
+)
 
-plt.scatter(sell_signals.index, sell_signals["close"], 
-           color="red", marker="v", s=200, label="CLOSE (Vente)", zorder=5, edgecolors="black", linewidths=1.5)
+# 1. Graphique principal - Prix avec signaux
+fig.add_trace(
+    go.Candlestick(
+        x=df_test.index,
+        open=df_test['open'],
+        high=df_test['high'],
+        low=df_test['low'],
+        close=df_test['close'],
+        name='Prix',
+        increasing_line_color='#00ff00',
+        decreasing_line_color='#ff0000'
+    ),
+    row=1, col=1
+)
 
-plt.title("Signaux de Trading BTC-USD - Prédictions IA", fontsize=16, fontweight="bold")
-plt.xlabel("Date", fontsize=12)
-plt.ylabel("Prix (USD)", fontsize=12)
-plt.legend(loc="best", fontsize=11)
-plt.grid(True, alpha=0.3)
+# Moyennes mobiles
+fig.add_trace(
+    go.Scatter(
+        x=df_test.index,
+        y=df_test['ma10'],
+        name='MA 10',
+        line=dict(color='#00d4ff', width=1.5),
+        opacity=0.7
+    ),
+    row=1, col=1
+)
 
-plt.gca().xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
-plt.gca().xaxis.set_major_locator(mdates.MonthLocator(interval=2))
-plt.xticks(rotation=45)
+fig.add_trace(
+    go.Scatter(
+        x=df_test.index,
+        y=df_test['ma20'],
+        name='MA 20',
+        line=dict(color='#ff00ff', width=1.5),
+        opacity=0.7
+    ),
+    row=1, col=1
+)
 
-plt.tight_layout()
-plt.savefig("trading_signals.png", dpi=300, bbox_inches="tight")
-print("Graphique sauvegardé : trading_signals.png")
-plt.show()
+# Signaux d'achat
+fig.add_trace(
+    go.Scatter(
+        x=buy_signals.index,
+        y=buy_signals['close'],
+        mode='markers',
+        name='OPEN (Achat)',
+        marker=dict(
+            symbol='triangle-up',
+            size=15,
+            color='#00ff00',
+            line=dict(color='white', width=2)
+        )
+    ),
+    row=1, col=1
+)
+
+# Signaux de vente
+fig.add_trace(
+    go.Scatter(
+        x=sell_signals.index,
+        y=sell_signals['close'],
+        mode='markers',
+        name='CLOSE (Vente)',
+        marker=dict(
+            symbol='triangle-down',
+            size=15,
+            color='#ff0000',
+            line=dict(color='white', width=2)
+        )
+    ),
+    row=1, col=1
+)
+
+# 2. Volume
+colors = ['#00ff00' if row['close'] >= row['open'] else '#ff0000' for idx, row in df_test.iterrows()]
+fig.add_trace(
+    go.Bar(
+        x=df_test.index,
+        y=df_test['volume'],
+        name='Volume',
+        marker_color=colors,
+        opacity=0.5,
+        showlegend=False
+    ),
+    row=2, col=1
+)
+
+# 3. RSI
+fig.add_trace(
+    go.Scatter(
+        x=df_test.index,
+        y=df_test['rsi'],
+        name='RSI',
+        line=dict(color='#ffaa00', width=2),
+        showlegend=False
+    ),
+    row=3, col=1
+)
+
+# Lignes de surachat/survente RSI
+fig.add_hline(y=70, line_dash="dash", line_color="red", opacity=0.5, row=3, col=1)
+fig.add_hline(y=30, line_dash="dash", line_color="green", opacity=0.5, row=3, col=1)
+
+# 4. MACD
+fig.add_trace(
+    go.Scatter(
+        x=df_test.index,
+        y=df_test['macd'],
+        name='MACD',
+        line=dict(color='#00ffff', width=2),
+        showlegend=False
+    ),
+    row=4, col=1
+)
+
+fig.add_hline(y=0, line_dash="dash", line_color="white", opacity=0.3, row=4, col=1)
+
+# Configuration du layout avec fond noir
+fig.update_layout(
+    title={
+        'text': 'Signaux de Trading BTC-USD - Prédictions IA',
+        'x': 0.5,
+        'xanchor': 'center',
+        'font': {'size': 24, 'color': 'white'}
+    },
+    template='plotly_dark',
+    plot_bgcolor='#000000',
+    paper_bgcolor='#000000',
+    font=dict(color='white'),
+    height=1200,
+    showlegend=True,
+    legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1,
+        bgcolor='rgba(0,0,0,0.5)',
+        bordercolor='white',
+        borderwidth=1
+    ),
+    hovermode='x unified',
+    xaxis4=dict(
+        rangeslider=dict(visible=False),
+        type='date',
+        gridcolor='#333333'
+    )
+)
+
+# Mise à jour des axes Y
+fig.update_yaxes(title_text="Prix (USD)", row=1, col=1, gridcolor='#333333')
+fig.update_yaxes(title_text="Volume", row=2, col=1, gridcolor='#333333')
+fig.update_yaxes(title_text="RSI", row=3, col=1, gridcolor='#333333', range=[0, 100])
+fig.update_yaxes(title_text="MACD", row=4, col=1, gridcolor='#333333')
+
+# Mise à jour de tous les axes X
+for i in range(1, 5):
+    fig.update_xaxes(gridcolor='#333333', row=i, col=1)
+
+# Sauvegarde du graphique HTML
+output_file = "trading_dashboard.html"
+fig.write_html(output_file)
+print(f"Graphique interactif sauvegardé : {output_file}")
+
+# Affichage dans le navigateur web
+fig.show()
+print("\nGraphique interactif ouvert dans votre navigateur web!")
