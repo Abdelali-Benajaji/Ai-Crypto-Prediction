@@ -11,6 +11,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report
 import ta
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 
 # ----------- 2. Téléchargement des données -----------
 
@@ -104,3 +106,61 @@ if prediction[0] == 1:
 else:
     print("Prédiction pour demain : 📉 DOWN (Baisse)")
 print("="*50)
+
+# ----------- 11. Génération des signaux de trading -----------
+
+df_test = df.iloc[-len(X_test):].copy()
+df_test["prediction"] = predictions
+
+df_test["signal"] = 0
+df_test["position"] = 0
+
+for i in range(len(df_test)):
+    if i == 0:
+        if df_test["prediction"].iloc[i] == 1:
+            df_test.loc[df_test.index[i], "signal"] = 1
+            df_test.loc[df_test.index[i], "position"] = 1
+    else:
+        prev_position = df_test["position"].iloc[i-1]
+        current_prediction = df_test["prediction"].iloc[i]
+        
+        if prev_position == 0 and current_prediction == 1:
+            df_test.loc[df_test.index[i], "signal"] = 1
+            df_test.loc[df_test.index[i], "position"] = 1
+        elif prev_position == 1 and current_prediction == 0:
+            df_test.loc[df_test.index[i], "signal"] = -1
+            df_test.loc[df_test.index[i], "position"] = 0
+        else:
+            df_test.loc[df_test.index[i], "position"] = prev_position
+
+# ----------- 12. Visualisation graphique -----------
+
+print("\nGénération du graphique...")
+
+plt.figure(figsize=(15, 8))
+
+plt.plot(df_test.index, df_test["close"], label="Prix BTC-USD", color="blue", linewidth=1.5, alpha=0.7)
+
+buy_signals = df_test[df_test["signal"] == 1]
+sell_signals = df_test[df_test["signal"] == -1]
+
+plt.scatter(buy_signals.index, buy_signals["close"], 
+           color="green", marker="^", s=200, label="OPEN (Achat)", zorder=5, edgecolors="black", linewidths=1.5)
+
+plt.scatter(sell_signals.index, sell_signals["close"], 
+           color="red", marker="v", s=200, label="CLOSE (Vente)", zorder=5, edgecolors="black", linewidths=1.5)
+
+plt.title("Signaux de Trading BTC-USD - Prédictions IA", fontsize=16, fontweight="bold")
+plt.xlabel("Date", fontsize=12)
+plt.ylabel("Prix (USD)", fontsize=12)
+plt.legend(loc="best", fontsize=11)
+plt.grid(True, alpha=0.3)
+
+plt.gca().xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
+plt.gca().xaxis.set_major_locator(mdates.MonthLocator(interval=2))
+plt.xticks(rotation=45)
+
+plt.tight_layout()
+plt.savefig("trading_signals.png", dpi=300, bbox_inches="tight")
+print("Graphique sauvegardé : trading_signals.png")
+plt.show()

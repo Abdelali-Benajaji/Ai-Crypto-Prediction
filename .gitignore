@@ -39,3 +39,6 @@ npm-debug.log*
 # Testing
 .coverage
 htmlcov/
+
+# Generated charts and outputs
+trading_signals.png

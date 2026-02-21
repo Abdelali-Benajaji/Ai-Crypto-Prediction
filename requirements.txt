@@ -4,3 +4,4 @@ python-binance
 scikit-learn
 ta
 yfinance
+matplotlib
